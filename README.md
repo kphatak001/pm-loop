@@ -3,7 +3,7 @@
 > Software engineering has test suites. Knowledge work has vibes.
 > PM Loop is nine AI agents that argue with each other until your documents are good.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Non-Commercial](https://img.shields.io/badge/License-Non--Commercial-red.svg)]
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 ## What is this?
