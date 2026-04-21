@@ -1,16 +1,37 @@
-MIT License
+# License
+
+## Code (Source Files)
 
 Copyright (c) 2026 Kaustubh Phatak
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software is provided for **personal, educational, and non-commercial use only**.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+You are free to:
+- **Use** — run the software for personal or internal evaluation purposes
+- **Study** — read, learn from, and reference the source code
+- **Modify** — create derivative works for personal or educational use
+- **Share** — redistribute the source code with this license intact
+
+Under the following restrictions:
+- **No Commercial Use** — You may not use this software, or any derivative work, for commercial purposes. Commercial purposes include, but are not limited to: selling the software, offering it as a paid service, incorporating it into a commercial product, or using it to generate revenue.
+- **Attribution** — You must give appropriate credit, provide a link to this repository, and indicate if changes were made.
+- **Same License** — If you redistribute or create derivative works, you must distribute them under this same license.
+
+**For commercial licensing inquiries, contact:** kphatak001 [at] github
+
+## Documentation (docs/, PAPER.md, README.md)
+
+Documentation and written content in this repository are licensed under
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+## Summary
+
+| What | License | Commercial Use |
+|---|---|---|
+| Source code | Non-Commercial Source License (above) | ❌ Not permitted |
+| Documentation | CC BY-NC-SA 4.0 | ❌ Not permitted |
+| Personal/educational use | Both | ✅ Permitted |
+| Attribution required | Both | ✅ Required |
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
