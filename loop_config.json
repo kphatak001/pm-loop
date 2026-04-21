@@ -1,0 +1,65 @@
+{
+  "max_spec_revisions": 3,
+  "max_draft_reworks": 3,
+  "max_total_iterations": 10,
+  "quality_threshold": 0.7,
+  "auto_publish": false,
+  "parallel_docs": true,
+  "observer_interval_minutes": 30,
+  "task_types": {
+    "prfaq": {
+      "stages": [
+        "intake",
+        "enrich",
+        "spec",
+        "adversarial",
+        "draft",
+        "review",
+        "ux_check",
+        "human_gate",
+        "publish"
+      ],
+      "quality_threshold": 0.8,
+      "notes": "PRFAQs need higher quality bar \u2014 VP audience"
+    },
+    "competitive_brief": {
+      "stages": [
+        "intake",
+        "enrich",
+        "spec",
+        "adversarial",
+        "draft",
+        "review",
+        "ux_check",
+        "human_gate",
+        "publish"
+      ],
+      "quality_threshold": 0.8,
+      "notes": "Full pipeline \u2014 claims need rigorous evidence"
+    },
+    "status_report": {
+      "stages": [
+        "intake",
+        "enrich",
+        "draft",
+        "review",
+        "human_gate",
+        "publish"
+      ],
+      "quality_threshold": 0.6,
+      "notes": "Skip spec+adversarial \u2014 format is standardized"
+    },
+    "ticket_response": {
+      "stages": [
+        "intake",
+        "enrich",
+        "draft",
+        "review",
+        "human_gate",
+        "publish"
+      ],
+      "quality_threshold": 0.5,
+      "notes": "Quick-turn \u2014 minimal pipeline"
+    }
+  }
+}
