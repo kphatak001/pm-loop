@@ -178,7 +178,7 @@ PM Loop draws from the **Grandpa Loop** (Joshua Samuel, 2025) — adversarial mu
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+see [LICENSE](LICENSE).
 
 ---
 
