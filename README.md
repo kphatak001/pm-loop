@@ -64,7 +64,7 @@ No dependencies beyond Python stdlib. The LLM integration is left to your agent 
 
 ```bash
 # Add a task to the pipeline
-python runner.py add "Write Q2 competitive brief on Cloudflare agentic strategy" \
+python runner.py add "Write Q2 competitive brief on a competitor's agentic strategy" \
   --type competitive_brief --stakeholders "VP leadership" --deadline "2026-04-15"
 
 # See pipeline status

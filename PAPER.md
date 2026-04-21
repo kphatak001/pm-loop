@@ -259,7 +259,7 @@ The routing is a single dictionary mapping task type to stage sequence. Adding a
 
 Abstract architecture means nothing until you see it run. Here's what actually happens when a competitive brief goes through the full 8-stage pipeline.
 
-**The ask:** *"Write a competitive brief on Cloudflare's agentic web strategy."*
+**The ask:** *"Write a competitive brief on a competitor's agentic web strategy."*
 
 **Stage 1 — Marge (Intake).** Marge classifies the task as `competitive_brief`, assigns the full 8-stage pipeline, sets the quality bar at 0.8, and creates the task file. This takes under a second. It's routing, not reasoning. Marge is the responsible parent of the pipeline — she makes sure everything starts in order.
 
