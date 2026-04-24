@@ -334,6 +334,9 @@ class Observer:
             report["complaints"].append(
                 "Nothing in the queue. I'm going back to sleep.")
 
+        # Tune config based on patterns (one change at a time, wait 2+ cycles)
+        self._tune(report, all_arcs, tasks)
+
         # Save report
         OBSERVER_DIR.mkdir(parents=True, exist_ok=True)
         self.report_path.write_text(json.dumps(report, indent=2))
@@ -341,6 +344,83 @@ class Observer:
             f.write(json.dumps(report) + "\n")
 
         return report
+
+    def _tune(self, report: dict, all_arcs: dict, tasks: list):
+        """Make at most one config change per observation, based on evidence.
+
+        Rules:
+        - Skip if last config change was < 2 reports ago
+        - High spec_revision rate → bump max_spec_revisions
+        - High draft_fix/ux_fix rate → lower quality_threshold by 0.05
+        - Zero rejections across all tasks → raise quality_threshold by 0.05
+        """
+        history = self._load_history()
+        # Don't tune if we changed config recently (wait 2+ cycles)
+        recent_changes = [h for h in history[-2:] if h.get("config_changes")]
+        if recent_changes:
+            return
+
+        active = [t for t in tasks if t.stage != Stage.DONE]
+        if not active:
+            return
+
+        # High spec revision rate: > 60% of active tasks hit spec_revision
+        spec_rev_tasks = sum(1 for t in active
+                             if any(f["arc"] == "spec_revision" for f in t.feedback_history))
+        if spec_rev_tasks > len(active) * 0.6 and self.config["max_spec_revisions"] < 6:
+            old = self.config["max_spec_revisions"]
+            self.config["max_spec_revisions"] = old + 1
+            change = {"param": "max_spec_revisions", "old": old, "new": old + 1,
+                       "reason": f"{spec_rev_tasks}/{len(active)} tasks hit spec_revision — giving Lisa more room"}
+            report["config_changes"].append(change)
+            report["complaints"].append(f"Bumped max_spec_revisions {old}→{old+1}. Bob's being too picky.")
+            self._save_config()
+            return  # One change at a time
+
+        # High draft rework rate: > 60% of active tasks hit draft_fix or ux_fix
+        rework_tasks = sum(1 for t in active
+                           if any(f["arc"] in ("draft_fix", "ux_fix") for f in t.feedback_history))
+        if rework_tasks > len(active) * 0.6 and self.config["quality_threshold"] > 0.4:
+            old = self.config["quality_threshold"]
+            new = round(old - 0.05, 2)
+            self.config["quality_threshold"] = new
+            change = {"param": "quality_threshold", "old": old, "new": new,
+                       "reason": f"{rework_tasks}/{len(active)} tasks stuck in rework — lowering the bar slightly"}
+            report["config_changes"].append(change)
+            report["complaints"].append(f"Lowered quality_threshold {old}→{new}. Patty needs to relax.")
+            self._save_config()
+            return
+
+        # Everything passing first try: raise the bar
+        zero_rejection = all(len(t.feedback_history) == 0 for t in active)
+        if zero_rejection and len(active) >= 2 and self.config["quality_threshold"] < 0.95:
+            old = self.config["quality_threshold"]
+            new = round(old + 0.05, 2)
+            self.config["quality_threshold"] = new
+            change = {"param": "quality_threshold", "old": old, "new": new,
+                       "reason": f"All {len(active)} tasks passing without rejection — raising the bar"}
+            report["config_changes"].append(change)
+            report["complaints"].append(f"Raised quality_threshold {old}→{new}. Too easy. Suspicious.")
+            self._save_config()
+            return
+
+    def _save_config(self):
+        """Write config back to loop_config.json (atomic)."""
+        tmp = self.config_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.config, indent=2))
+        tmp.replace(self.config_path)
+
+    def _load_history(self) -> list[dict]:
+        """Load recent observer reports from history."""
+        if not self.history_path.exists():
+            return []
+        reports = []
+        for line in self.history_path.read_text().strip().splitlines()[-5:]:
+            try:
+                reports.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return reports
 
 
 def create_task(title: str, task_type: str, raw_input: str, metadata: dict = None) -> Task:
