@@ -195,9 +195,26 @@ def cmd_run(args):
 
     agent_key = STAGE_AGENTS.get(task.stage)
     print(f"Task: {task.id} [{task.stage}] → {agent_key}")
-    print("--- AGENT PROMPT ---")
-    print(prompt)
-    print("--- END AGENT PROMPT ---")
+
+    if not args.execute:
+        print("--- AGENT PROMPT ---")
+        print(prompt)
+        print("--- END AGENT PROMPT ---")
+        return
+
+    try:
+        executor = get_executor(getattr(args, "backend", None))
+        result = executor.execute(prompt)
+        verdict = result.get("verdict", "pass")
+        evidence = result.get("evidence", "")
+        arc = result.get("feedback_arc")
+        prev_stage = task.stage
+        advance_task(task, verdict, evidence, arc)
+        arc_str = f" via {arc}" if arc else ""
+        print(f"{verdict}{arc_str} → {task.stage}")
+    except Exception as e:
+        print(f"ERROR: {e}")
+        advance_task(task, "blocked", f"Executor error: {e}")
 
 
 def cmd_advance(args):
@@ -273,8 +290,12 @@ def main():
     p_cycle.add_argument("--backend", choices=list(BACKENDS.keys()),
                          help="LLM backend (auto-detects from env if omitted)")
 
-    p_run = sub.add_parser("run", help="Generate prompt for single task")
+    p_run = sub.add_parser("run", help="Run single task through current stage")
     p_run.add_argument("task_id")
+    p_run.add_argument("--execute", action="store_true",
+                       help="Execute with LLM and advance (without this, prints prompt only)")
+    p_run.add_argument("--backend", choices=list(BACKENDS.keys()),
+                       help="LLM backend (auto-detects from env if omitted)")
 
     sub.add_parser("observe", help="Run Grandpa observer")
 
