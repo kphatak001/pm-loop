@@ -142,6 +142,11 @@ PUBLISH_ROUTES = {
     "customer_experience": {"primary": "docs", "notify": "chat"},
 }
 
+# Override publish routes from config
+for _tt, _cfg in _CONFIG_TASK_TYPES.items():
+    if "publish" in _cfg:
+        PUBLISH_ROUTES[_tt] = _cfg["publish"]
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TASK MODEL — JSON file-based state machine

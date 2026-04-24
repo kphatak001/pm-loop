@@ -1,0 +1,14 @@
+[project]
+name = "pm-loop"
+version = "1.1.0"
+description = "Structured Disagreement as a Quality Mechanism for Knowledge Work"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Non-Commercial"}
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.25"]
+openai = ["openai>=1.0"]
+
+[project.scripts]
+pm-loop = "runner:main"
