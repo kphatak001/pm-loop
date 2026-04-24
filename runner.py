@@ -186,6 +186,34 @@ def cmd_run(args):
     print("--- END AGENT PROMPT ---")
 
 
+def cmd_advance(args):
+    """Feed agent results back into the pipeline, advancing or rejecting a task."""
+    task_file = QUEUE_DIR / f"{args.task_id}.json"
+    if not task_file.exists():
+        matches = list(QUEUE_DIR.glob(f"*{args.task_id}*.json"))
+        if len(matches) == 1:
+            task_file = matches[0]
+        else:
+            print(f"Task not found: {args.task_id}")
+            return
+
+    task = Task.from_dict(json.loads(task_file.read_text()))
+    prev_stage = task.stage
+
+    # Validate feedback arc if provided
+    if args.arc:
+        if args.arc not in FEEDBACK_ARCS:
+            print(f"Unknown feedback arc: {args.arc}")
+            print(f"  Valid arcs: {', '.join(FEEDBACK_ARCS.keys())}")
+            return
+        if args.verdict != "reject":
+            args.verdict = "reject"  # arc implies rejection
+
+    task = advance_task(task, args.verdict, args.evidence, args.arc)
+    arc_str = f" via {args.arc}" if args.arc else ""
+    print(f"{task.id}: {prev_stage} → {task.stage} [{args.verdict}]{arc_str}")
+
+
 def cmd_observe(args):
     """Run Grandpa observer."""
     tasks = load_tasks()
@@ -234,10 +262,17 @@ def main():
 
     sub.add_parser("observe", help="Run Grandpa observer")
 
+    p_adv = sub.add_parser("advance", help="Feed agent result back into pipeline")
+    p_adv.add_argument("task_id")
+    p_adv.add_argument("--verdict", required=True, choices=["pass", "reject", "blocked"])
+    p_adv.add_argument("--evidence", required=True, help="What was checked/found")
+    p_adv.add_argument("--arc", default=None,
+                       help=f"Feedback arc for rejections: {', '.join(FEEDBACK_ARCS.keys())}")
+
     args = parser.parse_args()
 
     cmds = {"add": cmd_add, "status": cmd_status, "cycle": cmd_cycle,
-            "run": cmd_run, "observe": cmd_observe}
+            "run": cmd_run, "advance": cmd_advance, "observe": cmd_observe}
     if args.command in cmds:
         cmds[args.command](args)
     else:
