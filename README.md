@@ -58,7 +58,12 @@ git clone https://github.com/kphatak001/pm-loop.git
 cd pm-loop
 ```
 
-No dependencies beyond Python stdlib. The LLM integration is left to your agent orchestrator.
+No dependencies beyond Python stdlib. Install optional LLM backends as needed:
+
+```bash
+pip install anthropic   # for Claude
+pip install openai      # for GPT-4, etc.
+```
 
 ### Usage
 
@@ -73,12 +78,35 @@ python runner.py status
 # Run one cycle (dry run — shows what would execute)
 python runner.py cycle
 
-# Run one cycle (execute — advances tasks through agents)
+# Run one cycle (execute with auto-detected LLM backend)
 python runner.py cycle --execute
 
-# Run Grandpa's observer
+# Run one cycle with a specific backend
+python runner.py cycle --execute --backend anthropic
+python runner.py cycle --execute --backend openai
+python runner.py cycle --execute --backend echo      # testing — auto-passes everything
+
+# Generate prompt for a single task (without executing)
+python runner.py run <task-id>
+
+# Feed agent results back into the pipeline
+python runner.py advance <task-id> --verdict pass --evidence "All ACs met, 5 sources cited"
+python runner.py advance <task-id> --verdict reject --evidence "Missing competitor data" --arc draft_fix
+
+# Run Grandpa's observer (detects stuck tasks, tunes config)
 python runner.py observe
 ```
+
+### LLM Backend
+
+`cycle --execute` calls your LLM and feeds results back automatically. The backend is auto-detected from environment variables:
+
+| Env var | Backend |
+|---------|---------|
+| `ANTHROPIC_API_KEY` | Claude (default model: claude-sonnet-4-20250514) |
+| `OPENAI_API_KEY` | GPT-4o |
+
+Or specify explicitly with `--backend`. For custom backends, subclass `Executor` in `executor.py`.
 
 ### Example Output
 
@@ -105,7 +133,7 @@ python runner.py observe
 | **6-stage** | Intake → Enrich → Draft → Review → UX → Gate | `status_report`, `meeting_prep`, `weekly_digest` | 0.6 |
 | **4-stage** | Intake → Enrich → Draft → Review → Gate | `ticket_response`, `email_draft` | 0.5 |
 
-Adding a new task type requires one line in `TASK_PIPELINES`.
+Adding a new task type: add an entry to `task_types` in `loop_config.json` with stages and quality threshold. No code changes needed.
 
 ## Feedback Arcs
 
@@ -123,19 +151,22 @@ Adding a new task type requires one line in `TASK_PIPELINES`.
 ```
 pm-loop/
 ├── orchestrator.py      # Task model, Stage enum, feedback arcs, advance_task(), Observer
-├── runner.py            # CLI: add, run, cycle, status, observe, factory
-├── loop_config.json     # Grandpa's tunable config (6 parameters)
+├── runner.py            # CLI: add, run, cycle, advance, status, observe
+├── executor.py          # Pluggable LLM backends (Anthropic, OpenAI, Echo)
+├── loop_config.json     # Grandpa's tunable config (pipelines, thresholds, publish routes)
+├── pyproject.toml       # Python 3.10+, optional deps, entry point
 ├── agents/
 │   ├── __init__.py
 │   └── prompts.py       # 9 agent prompt definitions (the actual agent logic)
-├── queue/               # Task JSON files (one per task, state machine)
+├── queue/               # Active task JSON files (one per task, state machine)
+│   └── done/            # Auto-archived completed tasks
 ├── evidence/            # Agent output artifacts (drafts, reviews, scores)
 ├── observer-reports/    # Grandpa's observation history
 ├── PAPER.md             # Full paper: architecture, results, analysis
-└── LICENSE              # MIT
+└── LICENSE
 ```
 
-The core is ~300 lines of Python. The agents are LLM prompts with structured JSON output schemas. The state is JSON files. No framework, no database, no infrastructure beyond "Python + an LLM API."
+The core is ~500 lines of Python across three files. The agents are LLM prompts with structured JSON output schemas. The state is JSON files. No framework, no database, no infrastructure beyond "Python + an LLM API."
 
 ## How It Works
 
@@ -153,7 +184,7 @@ The core is ~300 lines of Python. The agents are LLM prompts with structured JSO
 
 ## Configuration
 
-Grandpa tunes `loop_config.json`:
+Grandpa tunes `loop_config.json` — and now he actually writes changes back:
 
 ```json
 {
@@ -162,9 +193,30 @@ Grandpa tunes `loop_config.json`:
   "max_total_iterations": 10,
   "quality_threshold": 0.7,
   "auto_publish": false,
-  "parallel_docs": true
+  "parallel_docs": true,
+  "task_types": {
+    "prfaq": {
+      "stages": ["intake", "enrich", "spec", "adversarial", "draft", "review", "ux_check", "human_gate", "publish"],
+      "quality_threshold": 0.8,
+      "publish": {"primary": "docs", "notify": "chat"}
+    },
+    "ticket_response": {
+      "stages": ["intake", "enrich", "draft", "review", "human_gate", "publish"],
+      "quality_threshold": 0.5
+    }
+  }
 }
 ```
+
+Per-type overrides in `task_types` take precedence over the global defaults. The Observer auto-tunes:
+
+| Signal | Action | Guard |
+|--------|--------|-------|
+| All tasks passing first try | Raise `quality_threshold` +0.05 | Cap at 0.95 |
+| >60% tasks stuck in draft rework | Lower `quality_threshold` -0.05 | Floor at 0.4 |
+| >60% tasks hitting spec_revision | Bump `max_spec_revisions` +1 | Cap at 6 |
+
+One change at a time. Two-cycle cooldown between changes. Every tweak is logged in `observer-reports/`.
 
 ## Cost & Performance
 
