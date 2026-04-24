@@ -265,6 +265,13 @@ def cmd_observe(args):
     if report["feedback_patterns"]:
         print(f"\n  ↩ Feedback: {json.dumps(report['feedback_patterns'])}")
 
+    if report.get("trust_scores"):
+        print(f"\n  🤝 Agent Trust Scores:")
+        for agent, data in report["trust_scores"].items():
+            score = data["trust_score"]
+            bar = "🟢" if score >= 0.7 else "🟡" if score >= 0.5 else "🔴"
+            print(f"    {bar} {agent}: {score:.2f} ({data['correct']}/{data['total']} correct)")
+
     if report["complaints"]:
         print(f"\n  💬 Grandpa:")
         for c in report["complaints"]:

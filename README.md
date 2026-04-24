@@ -146,6 +146,29 @@ Adding a new task type: add an entry to `task_types` in `loop_config.json` with 
 | `human_rework` | You → Homer | Strategic defect. Human judgment overrides. |
 | `human_respec` | You → Lisa | Requirements defect. The spec was wrong. |
 
+## Agent Trust Profiles
+
+The pipeline tracks whether each agent's verdicts predict downstream outcomes — epistemic context learning. If Bob consistently rejects specs that Patty later approves, his trust score drops and Grandpa flags him for prompt refinement.
+
+| Signal | Meaning | Trust Effect |
+|--------|---------|--------------|
+| Bob rejects, Patty passes | Bob was too strict | Bob trust ↓ |
+| Bob passes, Patty rejects | Bob missed something | Bob trust ↓ |
+| Bob rejects, Patty rejects | Bob was right | Bob trust ↑ |
+| Bob passes, Patty passes | Bob was right | Bob trust ↑ |
+
+Trust scores appear in Grandpa's observer report:
+
+```
+  🤝 Agent Trust Scores:
+    🟢 sideshow_bob: 0.83 (5/6 correct)
+    🟡 patty: 0.60 (3/5 correct)
+```
+
+When an agent's trust score drops below 0.5 with 3+ data points, Grandpa complains and recommends prompt refinement. Trust data persists in `observer-reports/trust.json`.
+
+Based on: [Epistemic Context Learning: Building Trust the Right Way in LLM-Based Multi-Agent Systems](https://arxiv.org/abs/2604.xxxxx)
+
 ## Project Structure
 
 ```
@@ -153,6 +176,7 @@ pm-loop/
 ├── orchestrator.py      # Task model, Stage enum, feedback arcs, advance_task(), Observer
 ├── runner.py            # CLI: add, run, cycle, advance, status, observe
 ├── executor.py          # Pluggable LLM backends (Anthropic, OpenAI, Echo)
+├── trust.py             # Epistemic trust tracker — per-agent reliability scoring
 ├── loop_config.json     # Grandpa's tunable config (pipelines, thresholds, publish routes)
 ├── pyproject.toml       # Python 3.10+, optional deps, entry point
 ├── agents/

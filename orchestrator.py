@@ -24,6 +24,9 @@ QUEUE_DIR = BASE / "queue"
 EVIDENCE_DIR = BASE / "evidence"
 OBSERVER_DIR = BASE / "observer-reports"
 
+from trust import TrustTracker
+_trust_tracker = TrustTracker()
+
 
 class Stage(str, Enum):
     """Pipeline stages — ordered but with feedback arcs (Lissajous, not linear)."""
@@ -328,6 +331,9 @@ class Observer:
                 all_arcs[f["arc"]] += 1
         report["feedback_patterns"] = all_arcs
 
+        # Agent trust scores
+        report["trust_scores"] = _trust_tracker.summary()
+
         # Grandpa's complaints (the best part)
         if report["by_stage"].get(Stage.BLOCKED, 0) > 2:
             report["complaints"].append(
@@ -399,6 +405,7 @@ class Observer:
         # Everything passing first try: raise the bar
         zero_rejection = all(len(t.feedback_history) == 0 for t in active)
         if zero_rejection and len(active) >= 2 and self.config["quality_threshold"] < 0.95:
+
             old = self.config["quality_threshold"]
             new = round(old + 0.05, 2)
             self.config["quality_threshold"] = new
@@ -408,6 +415,15 @@ class Observer:
             report["complaints"].append(f"Raised quality_threshold {old}→{new}. Too easy. Suspicious.")
             self._save_config()
             return
+
+        # Low trust score: flag miscalibrated agents
+        for agent_name, rec in _trust_tracker.agents.items():
+            if rec.total >= 3 and rec.trust_score < 0.5:
+                report["complaints"].append(
+                    f"{agent_name} has trust score {rec.trust_score:.2f} "
+                    f"({rec.incorrect}/{rec.total} predictions wrong). "
+                    f"Prompt may need refinement."
+                )
 
     def _save_config(self):
         """Write config back to loop_config.json (atomic)."""
@@ -459,6 +475,11 @@ def advance_task(task: Task, verdict: str, evidence_details: str,
         task.stage = next_stage(task.stage, task.task_type)
 
     task.save()
+
+    # Record trust outcomes when task reaches a terminal/gate stage
+    if task.stage in (Stage.DONE, Stage.HUMAN_GATE):
+        _trust_tracker.record_outcome(task.evidence)
+        _trust_tracker.save()
 
     # Archive completed tasks out of the active queue
     if task.stage == Stage.DONE:
