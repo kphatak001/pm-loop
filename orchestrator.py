@@ -189,8 +189,11 @@ class Task:
 
     def save(self):
         self.updated_at = datetime.now(timezone.utc).isoformat()
+        QUEUE_DIR.mkdir(parents=True, exist_ok=True)
         path = QUEUE_DIR / f"{self.id}.json"
-        path.write_text(json.dumps(self.to_dict(), indent=2))
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.to_dict(), indent=2))
+        tmp.replace(path)
 
     def add_evidence(self, stage: str, agent: str, verdict: str, details: str):
         """Backpressure: no stage passes without evidence."""
@@ -212,7 +215,11 @@ def load_tasks(stage_filter: str = None) -> list[Task]:
         stage_filter = Stage(stage_filter)
     tasks = []
     for f in QUEUE_DIR.glob("*.json"):
-        t = Task.from_dict(json.loads(f.read_text()))
+        try:
+            t = Task.from_dict(json.loads(f.read_text()))
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            print(f"  ⚠️  Skipping malformed task file {f.name}: {e}", file=__import__('sys').stderr)
+            continue
         if stage_filter is None or t.stage == stage_filter:
             tasks.append(t)
     return tasks
@@ -367,4 +374,13 @@ def advance_task(task: Task, verdict: str, evidence_details: str,
         task.stage = next_stage(task.stage, task.task_type)
 
     task.save()
+
+    # Archive completed tasks out of the active queue
+    if task.stage == Stage.DONE:
+        done_dir = QUEUE_DIR / "done"
+        done_dir.mkdir(parents=True, exist_ok=True)
+        src = QUEUE_DIR / f"{task.id}.json"
+        if src.exists():
+            src.replace(done_dir / f"{task.id}.json")
+
     return task
