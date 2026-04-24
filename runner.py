@@ -144,7 +144,7 @@ def cmd_cycle(args):
 
     print(f"Pipeline cycle: {len(batch)} task(s) to process\n")
 
-    if args.dry_run:
+    if not args.execute:
         for item in batch:
             agent_key = STAGE_AGENTS.get(item["stage"], "?")
             print(f"  [DRY RUN] {item['task_id']} [{item['stage']}] → {agent_key} ({len(item['prompt'])} chars)")
@@ -225,9 +225,9 @@ def main():
 
     sub.add_parser("status", help="Pipeline status")
 
-    p_cycle = sub.add_parser("cycle", help="Advance all tasks one stage")
-    p_cycle.add_argument("--dry-run", action="store_true", default=True)
-    p_cycle.add_argument("--execute", action="store_true", dest="execute")
+    p_cycle = sub.add_parser("cycle", help="Advance all tasks one stage (dry-run unless --execute)")
+    p_cycle.add_argument("--execute", action="store_true",
+                         help="Actually execute; without this flag, cycle is dry-run")
 
     p_run = sub.add_parser("run", help="Generate prompt for single task")
     p_run.add_argument("task_id")
@@ -235,8 +235,6 @@ def main():
     sub.add_parser("observe", help="Run Grandpa observer")
 
     args = parser.parse_args()
-    if hasattr(args, "execute") and args.execute:
-        args.dry_run = False
 
     cmds = {"add": cmd_add, "status": cmd_status, "cycle": cmd_cycle,
             "run": cmd_run, "observe": cmd_observe}

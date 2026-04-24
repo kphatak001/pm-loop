@@ -105,6 +105,26 @@ TASK_PIPELINES = {
     "email_draft":        _FOUR_STAGE,
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIG-DRIVEN OVERRIDES — loop_config.json task_types overlay
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_CONFIG_PATH = BASE / "loop_config.json"
+_LOOP_CONFIG = json.loads(_CONFIG_PATH.read_text()) if _CONFIG_PATH.exists() else {}
+_CONFIG_TASK_TYPES = _LOOP_CONFIG.get("task_types", {})
+
+# Override pipelines and register new task types from config
+for _tt, _cfg in _CONFIG_TASK_TYPES.items():
+    if "stages" in _cfg:
+        TASK_PIPELINES[_tt] = [Stage(s) for s in _cfg["stages"]] + [Stage.DONE]
+
+
+def quality_threshold_for(task_type: str) -> float:
+    """Per-type quality threshold from config, falling back to global default."""
+    tt_cfg = _CONFIG_TASK_TYPES.get(task_type, {})
+    return tt_cfg.get("quality_threshold", _LOOP_CONFIG.get("quality_threshold", 0.7))
+
+
 # Publish destinations per task type (customize for your setup)
 PUBLISH_ROUTES = {
     "prfaq":              {"primary": "docs", "notify": "chat"},
@@ -155,8 +175,11 @@ class Task:
 
     @classmethod
     def from_dict(cls, d):
+        stage = d.get("stage", Stage.INTAKE)
+        if isinstance(stage, str) and not isinstance(stage, Stage):
+            stage = Stage(stage)
         t = cls(d["id"], d["title"], d["task_type"], d["raw_input"],
-                d.get("stage", Stage.INTAKE), d.get("metadata", {}))
+                stage, d.get("metadata", {}))
         t.evidence = d.get("evidence", [])
         t.iterations = d.get("iterations", 0)
         t.feedback_history = d.get("feedback_history", [])
@@ -185,6 +208,8 @@ class Task:
 
 def load_tasks(stage_filter: str = None) -> list[Task]:
     """Load all tasks, optionally filtered by stage."""
+    if stage_filter is not None and isinstance(stage_filter, str) and not isinstance(stage_filter, Stage):
+        stage_filter = Stage(stage_filter)
     tasks = []
     for f in QUEUE_DIR.glob("*.json"):
         t = Task.from_dict(json.loads(f.read_text()))
@@ -195,10 +220,14 @@ def load_tasks(stage_filter: str = None) -> list[Task]:
 
 def next_stage(current: str, task_type: str = None) -> str:
     """Happy path progression, respecting per-type pipeline routing."""
+    if isinstance(current, str) and not isinstance(current, Stage):
+        current = Stage(current)
     order = TASK_PIPELINES.get(task_type, _FULL)
     try:
         idx = order.index(current)
-        return order[min(idx + 1, len(order) - 1)]
+        if idx + 1 >= len(order):
+            return Stage.DONE
+        return order[idx + 1]
     except ValueError:
         return order[0]
 
