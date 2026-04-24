@@ -27,6 +27,7 @@ from orchestrator import (
     QUEUE_DIR, EVIDENCE_DIR, BASE,
 )
 from agents.prompts import AGENTS
+from executor import get_executor, BACKENDS
 
 # Stages where the pipeline pauses (no auto-advance)
 PAUSE_STAGES = {Stage.DONE, Stage.BLOCKED, Stage.HUMAN_GATE}
@@ -151,11 +152,24 @@ def cmd_cycle(args):
         print(f"\nRun with --execute to process {len(batch)} task(s).")
         return
 
-    # Execute mode: output prompts for your agent orchestrator
+    # Execute mode: call LLM and advance tasks
+    executor = get_executor(getattr(args, "backend", None))
     for item in batch:
-        print(f"--- AGENT TASK: {item['task_id']} [{item['stage']}] ---")
-        print(item["prompt"])
-        print(f"--- END AGENT TASK ---\n")
+        task_file = QUEUE_DIR / f"{item['task_id']}.json"
+        task = Task.from_dict(json.loads(task_file.read_text()))
+        agent_key = STAGE_AGENTS.get(item["stage"], "?")
+        print(f"  [{item['task_id']}] {item['stage']} → {agent_key} ... ", end="", flush=True)
+        try:
+            result = executor.execute(item["prompt"])
+            verdict = result.get("verdict", "pass")
+            evidence = result.get("evidence", "")
+            arc = result.get("feedback_arc")
+            advance_task(task, verdict, evidence, arc)
+            arc_str = f" via {arc}" if arc else ""
+            print(f"{verdict}{arc_str} → {task.stage}")
+        except Exception as e:
+            print(f"ERROR: {e}")
+            advance_task(task, "blocked", f"Executor error: {e}")
 
 
 def cmd_run(args):
@@ -256,6 +270,8 @@ def main():
     p_cycle = sub.add_parser("cycle", help="Advance all tasks one stage (dry-run unless --execute)")
     p_cycle.add_argument("--execute", action="store_true",
                          help="Actually execute; without this flag, cycle is dry-run")
+    p_cycle.add_argument("--backend", choices=list(BACKENDS.keys()),
+                         help="LLM backend (auto-detects from env if omitted)")
 
     p_run = sub.add_parser("run", help="Generate prompt for single task")
     p_run.add_argument("task_id")
